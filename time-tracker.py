@@ -18,6 +18,9 @@ class TimerApp(Gtk.Window):
         self.start_time = None
         self.running = False
 
+        # New variable to hold the currently selected category ID
+        self.current_category_id = None
+
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.add(vbox)
         
@@ -30,7 +33,7 @@ class TimerApp(Gtk.Window):
         self.total_time_label = Gtk.Label()
         vbox.pack_start(self.total_time_label, True, True, 0)
         
-        self.category_label = Gtk.Label("Category")
+        self.category_label = Gtk.Label(label="Category")
         vbox.pack_start(self.category_label, True, True, 0)
         
         self.category_combo = Gtk.ComboBoxText()
@@ -69,6 +72,16 @@ class TimerApp(Gtk.Window):
 
         self.init_db()
 
+        # Load the last active category from the database
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT active_category_id FROM settings WHERE id = 1")
+        active_category_id = cursor.fetchone()[0]
+
+        # Set the default value of the category_combo to the last active category
+        if active_category_id is not None:
+            self.category_combo.set_active_id(str(active_category_id))
+
+
     def init_db(self):
         self.conn = sqlite3.connect("timer_records.db")
         cursor = self.conn.cursor()
@@ -85,6 +98,11 @@ class TimerApp(Gtk.Window):
         cursor.execute("INSERT OR IGNORE INTO total_time (id, accumulated_time) VALUES (1, 0)")
         self.conn.commit()
 
+        cursor.execute('''CREATE TABLE IF NOT EXISTS settings
+                      (id INTEGER PRIMARY KEY, active_category_id INTEGER)''')
+        cursor.execute("INSERT OR IGNORE INTO settings (id, active_category_id) VALUES (1, NULL)")
+
+
         cursor.execute("SELECT accumulated_time FROM total_time WHERE id = 1")
         self.total_time = cursor.fetchone()[0]
         self.total_time_label.set_markup(f"<big>Total time: {self.format_time(self.total_time)}</big>")
@@ -95,6 +113,7 @@ class TimerApp(Gtk.Window):
         mins, sec = divmod(int(elapsed), 60)
         hours, mins = divmod(mins, 60)
         return f"{hours:02d}:{mins:02d}:{sec:02d}.{int((elapsed % 1) * 10)}"
+        
 
     def load_categories(self, new_category_id=None):
         current_active_id = self.category_combo.get_active_id()
@@ -108,8 +127,8 @@ class TimerApp(Gtk.Window):
         grid = Gtk.Grid()
         self.categories_list_box.add(grid)
 
-        col1 = Gtk.Label("Category")
-        col2 = Gtk.Label("Total Time")
+        col1 = Gtk.Label(label="Category")
+        col2 = Gtk.Label(label="Total Time")
         grid.attach(col1, 0, 0, 1, 1)
         grid.attach(col2, 1, 0, 1, 1)
 
@@ -118,23 +137,27 @@ class TimerApp(Gtk.Window):
             self.category_combo.append(str(category_id), name)
 
             total_time = self.get_category_total_time(category_id)
-            category_label = Gtk.Label(name)
+            category_label = Gtk.Label(label=name)
             category_label.set_halign(Gtk.Align.START)
-            total_time_label = Gtk.Label(self.format_time(total_time))
+            total_time_label = Gtk.Label(label=self.format_time(total_time))
             grid.attach(category_label, 0, row, 1, 1)
             grid.attach(total_time_label, 1, row, 1, 1)
             row += 1
-        
+
+       
         # Set the active category back to the previously active category ID
         if current_active_id is not None:
             self.category_combo.set_active_id(current_active_id)
         else:
             self.category_combo.set_active(0)
         
-        # Set the active category
+        # # Set the active category
         if new_category_id is not None:
             self.category_combo.set_active_id(str(new_category_id))
 
+         # Store the current category ID
+        self.current_category_id = int(self.category_combo.get_active_id())
+ 
         self.categories_list_box.show_all()
         
     def on_export_button_clicked(self, widget):
@@ -206,6 +229,9 @@ class TimerApp(Gtk.Window):
                     self.conn.commit()
                     self.load_categories()
 
+        # Clear the current category ID
+        self.current_category
+
         dialog.destroy()
         
     def on_delete_category_button_clicked(self, widget):
@@ -234,7 +260,8 @@ class TimerApp(Gtk.Window):
                 self.category_combo.set_active(0)
 
             dialog.destroy()
-            
+
+           
     def update_total_time(self):
         cursor = self.conn.cursor()
         cursor.execute("SELECT elapsed_time FROM records")
@@ -286,6 +313,9 @@ class TimerApp(Gtk.Window):
             cursor.execute("INSERT INTO records (category_id, elapsed_time) VALUES (?, ?)", (category_id, formatted_time))
             self.conn.commit()
 
+            # Store the current category ID
+            self.current_category_id = category_id
+
             self.total_time += elapsed_time
             self.total_time_label.set_markup(f"<big>Total time: {self.format_time(self.total_time)}</big>")
             cursor.execute("UPDATE total_time SET accumulated_time = ? WHERE id = 1", (self.total_time,))
@@ -293,6 +323,12 @@ class TimerApp(Gtk.Window):
 
             self.load_categories()
             self.update_total_time()
+
+            # Save the last active category to the database
+            active_category_id = int(self.category_combo.get_active_id())
+            cursor = self.conn.cursor()
+            cursor.execute("UPDATE settings SET active_category_id = ?", (active_category_id,))
+            self.conn.commit()
 
     def on_add_category_button_clicked(self, widget):
         dialog = Gtk.Dialog(title="Add Category", parent=self, flags=0)
@@ -320,6 +356,13 @@ class TimerApp(Gtk.Window):
                     self.load_categories(new_category_id)
                 except sqlite3.IntegrityError:
                     print(f"Category '{category_name}' already exists")
+
+        # Set the new category as the active category
+        self.category_combo.append(str(new_category_id), category_name)
+        self.category_combo.set_active_id(str(new_category_id))
+        
+        # Store the current category ID
+        self.current_category_id = new_category_id
 
         dialog.destroy()
 
