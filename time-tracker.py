@@ -68,6 +68,19 @@ class TimerApp(Gtk.Window):
 
         self.button = Gtk.Button(label="Start")
         self.button.connect("clicked", self.on_button_clicked)
+
+        # Create the CSS provider
+        self.css_provider = Gtk.CssProvider()
+
+        # Add the CSS provider to the button
+        style_context = self.button.get_style_context()
+        style_context.add_provider(self.css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+
+        # Load the CSS styles
+        self.load_css()
+        # Set the initial button color
+        self.set_button_color("stop")
+
         vbox.pack_start(self.button, True, True, 0)
 
         self.init_db()
@@ -81,6 +94,40 @@ class TimerApp(Gtk.Window):
         if active_category_id is not None:
             self.category_combo.set_active_id(str(active_category_id))
 
+    def set_button_color(self, color_class):
+        style_context = self.button.get_style_context()
+        if color_class == "start":
+            style_context.remove_class("stop")
+            style_context.add_class("start")
+        elif color_class == "stop":
+            style_context.remove_class("start")
+            style_context.add_class("stop")
+
+    def load_css(self):
+        css = b"""
+        .start {
+            background-image: linear-gradient(to bottom, #990000, #990000);
+            color: #ffffff;
+            border-radius: 3px;
+        }
+        .start:hover {
+            background-image: linear-gradient(to bottom, #800000, #800000);
+            color: #ffffff;
+            border-radius: 3px;
+        }
+
+        .stop {
+            background-image: linear-gradient(to bottom, #009933, #009933);
+            color: #ffffff;
+            border-radius: 3px;
+        }
+        .stop:hover {
+            background-image: linear-gradient(to bottom, #006622, #006622);
+            color: #ffffff;
+            border-radius: 3px;
+        }
+        """
+        self.css_provider.load_from_data(css)
 
     def init_db(self):
         self.conn = sqlite3.connect("timer_records.db")
@@ -301,12 +348,14 @@ class TimerApp(Gtk.Window):
             self.running = True
             GLib.timeout_add(100, self.update_label)
             self.button.set_label("Stop")
+            self.set_button_color("start")
         else:
             self.running = False
             elapsed_time = time.perf_counter() - self.start_time
             formatted_time = self.format_time(elapsed_time)
             self.timer_label.set_markup(f"<big>{formatted_time}</big>")
             self.button.set_label("Start")
+            self.set_button_color("stop")
 
             category_id = int(self.category_combo.get_active_id())
             cursor = self.conn.cursor()
