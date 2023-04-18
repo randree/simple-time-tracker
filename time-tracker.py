@@ -203,7 +203,8 @@ class TimerApp(Gtk.Window):
             self.category_combo.set_active_id(str(new_category_id))
 
          # Store the current category ID
-        self.current_category_id = int(self.category_combo.get_active_id())
+        if self.category_combo.get_active_id() is not None:
+            self.current_category_id = int(self.category_combo.get_active_id())
  
         self.categories_list_box.show_all()
         
@@ -258,7 +259,7 @@ class TimerApp(Gtk.Window):
                 Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
             content_area = dialog.get_content_area()
-            label = Gtk.Label("New Category Name:")
+            label = Gtk.Label(label="New Category Name:")
             content_area.add(label)
 
             entry = Gtk.Entry()
@@ -276,10 +277,7 @@ class TimerApp(Gtk.Window):
                     self.conn.commit()
                     self.load_categories()
 
-        # Clear the current category ID
-        self.current_category
-
-        dialog.destroy()
+            dialog.destroy()
         
     def on_delete_category_button_clicked(self, widget):
         category_id = self.category_combo.get_active_id()
@@ -384,7 +382,7 @@ class TimerApp(Gtk.Window):
         dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
         content_area = dialog.get_content_area()
-        label = Gtk.Label("New Category Name:")
+        label = Gtk.Label(label="New Category Name:")
         content_area.add(label)
 
         entry = Gtk.Entry()
@@ -392,6 +390,9 @@ class TimerApp(Gtk.Window):
 
         dialog.show_all()
         response = dialog.run()
+
+        new_category_id = 0
+        category_name = ""
 
         if response == Gtk.ResponseType.OK:
             category_name = entry.get_text().strip()
@@ -406,12 +407,12 @@ class TimerApp(Gtk.Window):
                 except sqlite3.IntegrityError:
                     print(f"Category '{category_name}' already exists")
 
-        # Set the new category as the active category
-        self.category_combo.append(str(new_category_id), category_name)
-        self.category_combo.set_active_id(str(new_category_id))
+            # Set the new category as the active category
+            self.category_combo.append(str(new_category_id), category_name)
+            self.category_combo.set_active_id(str(new_category_id))
         
-        # Store the current category ID
-        self.current_category_id = new_category_id
+            # Store the current category ID
+            self.current_category_id = new_category_id
 
         dialog.destroy()
 
