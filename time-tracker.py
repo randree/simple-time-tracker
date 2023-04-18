@@ -156,10 +156,20 @@ class TimerApp(Gtk.Window):
 
         self.load_categories()
 
-    def format_time(self, elapsed):
-        mins, sec = divmod(int(elapsed), 60)
-        hours, mins = divmod(mins, 60)
-        return f"{hours:02d}:{mins:02d}:{sec:02d}.{int((elapsed % 1) * 10)}"
+    def format_time(self, elapsed_time):
+        is_negative = elapsed_time < 0
+        if is_negative:
+            elapsed_time = -elapsed_time
+
+        hours, rem = divmod(elapsed_time, 3600)
+        mins, secs = divmod(rem, 60)
+        rounded_secs = round(secs, 2)  # Round seconds to 2 decimal places
+
+        formatted_time = f"{int(hours):02d}:{int(mins):02d}:{rounded_secs:05.2f}"
+        if is_negative:
+            formatted_time = f"-{formatted_time}"
+
+        return formatted_time
         
 
     def load_categories(self, new_category_id=None):
@@ -213,9 +223,9 @@ class TimerApp(Gtk.Window):
         dialog = Gtk.FileChooserDialog(
             "Export Categories",
             self,
-            Gtk.FileChooserAction.SAVE,
-            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+            Gtk.FileChooserAction.SAVE
         )
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
         # Set the default filename
         dialog.set_current_name("categories.txt")
@@ -247,11 +257,13 @@ class TimerApp(Gtk.Window):
             print(f"Categories exported to {filename}")
 
         dialog.destroy()
-        
+            
     def on_edit_category_button_clicked(self, widget):
         category_id = self.category_combo.get_active_id()
         if category_id is not None:
             category_name = self.category_combo.get_active_text()
+            old_total_time = self.get_category_total_time(category_id)
+
             dialog = Gtk.Dialog(title="Edit Category", parent=self, flags=0)
 
             dialog.add_buttons(
@@ -266,18 +278,43 @@ class TimerApp(Gtk.Window):
             entry.set_text(category_name)
             content_area.add(entry)
 
+            label_total_time = Gtk.Label(label="New Total Time (HH:MM:SS.ss):")
+            content_area.add(label_total_time)
+
+            entry_total_time = Gtk.Entry()
+            entry_total_time.set_text(self.format_time(old_total_time))
+            content_area.add(entry_total_time)
+
             dialog.show_all()
             response = dialog.run()
 
             if response == Gtk.ResponseType.OK:
                 new_name = entry.get_text().strip()
+                new_time_str = entry_total_time.get_text().strip()
+
                 if new_name:
                     cursor = self.conn.cursor()
                     cursor.execute("UPDATE categories SET name = ? WHERE id = ?", (new_name, category_id))
                     self.conn.commit()
-                    self.load_categories()
+
+                if new_time_str:
+                    new_total_time = round(sum(x * (int(t) if i != 2 else float(t)) for i, (x, t) in enumerate(zip([3600, 60, 1], new_time_str.split(":")))),2)
+                    time_difference = round(new_total_time - round(old_total_time, 2), 2)
+
+                    print("SSS", self.format_time(time_difference), time_difference, new_total_time, old_total_time)
+                    cursor = self.conn.cursor()
+                    cursor.execute("INSERT INTO records (category_id, elapsed_time) VALUES (?, ?)", (category_id, self.format_time(time_difference)))
+                    self.conn.commit()
+
+                    self.total_time += time_difference
+                    self.total_time_label.set_markup(f"<big>Total time: {self.format_time(self.total_time)}</big>")
+                    cursor.execute("UPDATE total_time SET accumulated_time = ? WHERE id = 1", (self.total_time,))
+                    self.conn.commit()
+
+                self.load_categories()
 
             dialog.destroy()
+
         
     def on_delete_category_button_clicked(self, widget):
         category_id = self.category_combo.get_active_id()
@@ -315,8 +352,11 @@ class TimerApp(Gtk.Window):
         self.total_time = 0
         for elapsed_time, in times:
             time_parts = elapsed_time.split(':')
+            sign = -1 if time_parts[0].startswith('-') else 1
+            time_parts[0] = time_parts[0].lstrip('-')
             hours, mins, secs = [int(part) for part in time_parts[:-1]] + [float(time_parts[-1])]
-            self.total_time += hours * 3600 + mins * 60 + secs
+            time_in_seconds = sign * (hours * 3600 + mins * 60 + secs)
+            self.total_time += time_in_seconds
 
         self.total_time_label.set_markup(f"<big>Total time: {self.format_time(self.total_time)}</big>")
         cursor.execute("UPDATE total_time SET accumulated_time = ? WHERE id = 1", (self.total_time,))
@@ -331,9 +371,12 @@ class TimerApp(Gtk.Window):
         total_time = 0
         for elapsed_time, in times:
             time_parts = elapsed_time.split(':')
+            sign = -1 if time_parts[0].startswith('-') else 1
+            time_parts[0] = time_parts[0].lstrip('-')
             hours, mins, secs = [int(part) for part in time_parts[:-1]] + [float(time_parts[-1])]
-            total_time += hours * 3600 + mins * 60 + secs
-        return total_time
+            time_in_seconds = sign * (hours * 3600 + mins * 60 + secs)
+            total_time += time_in_seconds
+        return round(total_time,2)
 
     def update_label(self):
         elapsed_time = time.perf_counter() - self.start_time
