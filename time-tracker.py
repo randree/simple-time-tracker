@@ -4,7 +4,7 @@ import sqlite3
 import datetime
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, GLib, Gdk
 
 
 class TimerApp(Gtk.Window):
@@ -69,16 +69,16 @@ class TimerApp(Gtk.Window):
         self.button = Gtk.Button(label="Start")
         self.button.connect("clicked", self.on_button_clicked)
 
-        # Create the CSS provider
-        self.css_provider = Gtk.CssProvider()
-
-        # Add the CSS provider to the button
-        style_context = self.button.get_style_context()
-        style_context.add_provider(self.css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        # Set up the CSS style
+        style_provider = Gtk.CssProvider()
+        style_provider.load_from_data(self.load_css())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            style_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
         # Load the CSS styles
-        self.load_css()
-        # Set the initial button color
         self.set_button_color("stop")
 
         vbox.pack_start(self.button, True, True, 0)
@@ -104,7 +104,7 @@ class TimerApp(Gtk.Window):
             style_context.add_class("stop")
 
     def load_css(self):
-        css = b"""
+        return b"""
         .start {
             background-image: linear-gradient(to bottom, #990000, #990000);
             color: #ffffff;
@@ -125,6 +125,9 @@ class TimerApp(Gtk.Window):
             background-image: linear-gradient(to bottom, #006622, #006622);
             color: #ffffff;
             border-radius: 3px;
+        }
+        #active_category {
+            color: #a30000
         }
         """
         self.css_provider.load_from_data(css)
@@ -165,7 +168,7 @@ class TimerApp(Gtk.Window):
         mins, secs = divmod(rem, 60)
         rounded_secs = round(secs, 2)  # Round seconds to 2 decimal places
 
-        formatted_time = f"{int(hours):02d}:{int(mins):02d}:{rounded_secs:05.2f}"
+        formatted_time = f"{int(hours):02d}:{int(mins):02d}:{rounded_secs:04.1f}"
         if is_negative:
             formatted_time = f"-{formatted_time}"
 
@@ -194,14 +197,23 @@ class TimerApp(Gtk.Window):
             self.category_combo.append(str(category_id), name)
 
             total_time = self.get_category_total_time(category_id)
+
+            # if str(category_id) == current_active_id:
+            #     category_label = Gtk.Label(label=name, name="active_category")
+            # else:
             category_label = Gtk.Label(label=name)
+
             category_label.set_halign(Gtk.Align.START)
-            category_label.set_margin_top(5)
-            category_label.set_margin_bottom(5)
+            category_label.set_margin_top(2)
+            category_label.set_margin_bottom(2)
             category_label.set_margin_start(5)
             category_label.set_margin_end(5)
-            
+
             total_time_label = Gtk.Label(label=self.format_time(total_time))
+            total_time_label.set_margin_top(2)
+            total_time_label.set_margin_bottom(2)
+            total_time_label.set_margin_start(5)
+            total_time_label.set_margin_end(5)
             grid.attach(category_label, 0, row, 1, 1)
             grid.attach(total_time_label, 1, row, 1, 1)
             row += 1
@@ -306,7 +318,7 @@ class TimerApp(Gtk.Window):
                     new_total_time = round(sum(x * (int(t) if i != 2 else float(t)) for i, (x, t) in enumerate(zip([3600, 60, 1], new_time_str.split(":")))),2)
                     time_difference = round(new_total_time - round(old_total_time, 2), 2)
 
-                    print("SSS", self.format_time(time_difference), time_difference, new_total_time, old_total_time)
+                    # print("CheckTime", self.format_time(time_difference), time_difference, new_total_time, old_total_time)
                     cursor = self.conn.cursor()
                     cursor.execute("INSERT INTO records (category_id, elapsed_time) VALUES (?, ?)", (category_id, self.format_time(time_difference)))
                     self.conn.commit()
