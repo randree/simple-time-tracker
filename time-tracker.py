@@ -1,3 +1,5 @@
+# Time Tracker - A simple time tracking application using Python and GTK
+
 import gi
 import time
 import sqlite3
