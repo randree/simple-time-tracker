@@ -196,6 +196,11 @@ class TimerApp(Gtk.Window):
             total_time = self.get_category_total_time(category_id)
             category_label = Gtk.Label(label=name)
             category_label.set_halign(Gtk.Align.START)
+            category_label.set_margin_top(5)
+            category_label.set_margin_bottom(5)
+            category_label.set_margin_start(5)
+            category_label.set_margin_end(5)
+            
             total_time_label = Gtk.Label(label=self.format_time(total_time))
             grid.attach(category_label, 0, row, 1, 1)
             grid.attach(total_time_label, 1, row, 1, 1)
