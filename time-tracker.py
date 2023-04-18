@@ -248,36 +248,54 @@ class TimerApp(Gtk.Window):
 
         dialog.destroy()
         
-    def on_edit_category_button_clicked(self, widget):
-        category_id = self.category_combo.get_active_id()
-        if category_id is not None:
-            category_name = self.category_combo.get_active_text()
-            dialog = Gtk.Dialog(title="Edit Category", parent=self, flags=0)
+def on_edit_category_button_clicked(self, widget):
+    category_id = self.category_combo.get_active_id()
+    if category_id is not None:
+        category_name = self.category_combo.get_active_text()
+        total_time = self.get_category_total_time(category_id)
+        dialog = Gtk.Dialog(title="Edit Category", parent=self, flags=0)
 
-            dialog.add_buttons(
-                Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
-            content_area = dialog.get_content_area()
-            label = Gtk.Label(label="New Category Name:")
-            content_area.add(label)
+        content_area = dialog.get_content_area()
+        label_name = Gtk.Label(label="New Category Name:")
+        content_area.add(label_name)
 
-            entry = Gtk.Entry()
-            entry.set_text(category_name)
-            content_area.add(entry)
+        entry_name = Gtk.Entry()
+        entry_name.set_text(category_name)
+        content_area.add(entry_name)
 
-            dialog.show_all()
-            response = dialog.run()
+        label_time = Gtk.Label(label="New Total Time (HH:MM:SS):")
+        content_area.add(label_time)
 
-            if response == Gtk.ResponseType.OK:
-                new_name = entry.get_text().strip()
-                if new_name:
-                    cursor = self.conn.cursor()
-                    cursor.execute("UPDATE categories SET name = ? WHERE id = ?", (new_name, category_id))
-                    self.conn.commit()
-                    self.load_categories()
+        entry_time = Gtk.Entry()
+        entry_time.set_text(self.format_time(total_time))
+        content_area.add(entry_time)
 
-            dialog.destroy()
+        dialog.show_all()
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            new_name = entry_name.get_text().strip()
+            new_time_str = entry_time.get_text().strip()
+
+            if new_name:
+                cursor = self.conn.cursor()
+                cursor.execute("UPDATE categories SET name = ? WHERE id = ?", (new_name, category_id))
+                self.conn.commit()
+
+            if new_time_str:
+                new_total_time = sum(x * int(t) for x, t in zip([3600, 60, 1], new_time_str.split(":")))
+                difference = new_total_time - total_time
+                cursor.execute("INSERT INTO records (category_id, elapsed_time) VALUES (?, ?)", (category_id, self.format_time(difference)))
+                self.conn.commit()
+
+            self.load_categories()
+
+        dialog.destroy()
+
         
     def on_delete_category_button_clicked(self, widget):
         category_id = self.category_combo.get_active_id()
