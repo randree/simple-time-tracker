@@ -1,19 +1,25 @@
 # Time Tracker - A simple time tracking application using Python and GTK
 
 import gi
+import os
 import time
 import sqlite3
 import datetime
+import configparser
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk
 
+CONFIG_FILE = "app_config.ini"
 
 class TimerApp(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title="Timer App")
         self.set_default_icon_name("clock-symbolic")
         self.set_border_width(10)
+
+        self.connect("delete-event", self.on_delete_event)
+        self.load_window_properties()
         
         clock_icon = Gtk.Image.new_from_icon_name("clock-symbolic", Gtk.IconSize.DIALOG)
 
@@ -480,6 +486,34 @@ class TimerApp(Gtk.Window):
 
     def on_destroy(self):
         self.conn.close()
+
+    def on_delete_event(self, widget, event):
+        self.save_window_properties()
+
+    def load_window_properties(self):
+        config = configparser.ConfigParser()
+        if os.path.exists(CONFIG_FILE):
+            config.read(CONFIG_FILE)
+            x = int(config.get("Window", "x", fallback=0))
+            y = int(config.get("Window", "y", fallback=0))
+            width = int(config.get("Window", "width", fallback=300))
+            height = int(config.get("Window", "height", fallback=200))
+            self.move(x, y)
+            self.resize(width, height)
+
+    def save_window_properties(self):
+        config = configparser.ConfigParser()
+        x, y = self.get_position()
+        width, height = self.get_size()
+        if not config.has_section("Window"):
+            config.add_section("Window")
+        config.set("Window", "x", str(x))
+        config.set("Window", "y", str(y))
+        config.set("Window", "width", str(width))
+        config.set("Window", "height", str(height))
+
+        with open(CONFIG_FILE, "w") as config_file:
+            config.write(config_file)
 
 app = TimerApp()
 app.connect("destroy", Gtk.main_quit)
