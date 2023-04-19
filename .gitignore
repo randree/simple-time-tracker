@@ -2,3 +2,4 @@ timer_records.db
 categories.txt
 test.py
 app_config.ini
+__pycache__

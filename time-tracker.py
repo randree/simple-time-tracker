@@ -149,7 +149,10 @@ class TimerApp(Gtk.Window):
         cursor.execute('''CREATE TABLE IF NOT EXISTS records
                           (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                           category_id INTEGER REFERENCES categories(id),
-                          elapsed_time TEXT)''')
+                          elapsed_time TEXT,
+                          timestamp TEXT NOT NULL,
+                          FOREIGN KEY (category_id) REFERENCES categories (id)
+                          )''')
 
         cursor.execute('''CREATE TABLE IF NOT EXISTS total_time
                           (id INTEGER PRIMARY KEY, accumulated_time REAL)''')
@@ -423,9 +426,13 @@ class TimerApp(Gtk.Window):
             self.button.set_label("Start")
             self.set_button_color("stop")
 
-            category_id = int(self.category_combo.get_active_id())
+            # Get the current timestamp
+            current_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Insert the new record with the current timestamp
             cursor = self.conn.cursor()
-            cursor.execute("INSERT INTO records (category_id, elapsed_time) VALUES (?, ?)", (category_id, formatted_time))
+            category_id = int(self.category_combo.get_active_id())
+            cursor.execute("INSERT INTO records (category_id, elapsed_time, timestamp) VALUES (?, ?, ?)", (category_id, formatted_time, current_timestamp))
             self.conn.commit()
 
             # Store the current category ID
