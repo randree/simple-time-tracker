@@ -18,8 +18,6 @@ class TimerApp(Gtk.Window):
         self.set_default_icon_name("clock-symbolic")
         self.set_border_width(10)
 
-        self.set_from_icon_name("applications-system-symbolic")
-
         self.connect("delete-event", self.on_delete_event)
         self.load_window_properties()
         
