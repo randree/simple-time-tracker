@@ -17,6 +17,8 @@ Time Tracker is a desktop application that allows users to track the time spent 
 * Python 3
 * Gtk 3.0
 * sqlite3
+* OS
+* configparser
 
 ## Installation
 1. Make sure you have Python 3.x installed on your system.
