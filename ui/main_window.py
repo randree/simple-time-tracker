@@ -2,14 +2,18 @@
 
 from ui.custom_widgets import StartButton
 from utils.css_manager import CssManager
+from utils.config import Config
 from database import DatabaseManager
 from gi.repository import Gtk, GLib, Gdk
+from ui.list_elapsed import ListElapsedWindow
 import gi
 import os
 import time
 import sqlite3
 import datetime
 import configparser
+
+from utils.format import Format
 
 gi.require_version("Gtk", "3.0")
 
@@ -26,10 +30,12 @@ class MainWindow(Gtk.Window):
         self.set_border_width(10)
 
         self.connect("delete-event", self.on_delete_event)
-        self.load_config()
 
         self.db_manager = DatabaseManager(DATABASE)
         self.conn = self.db_manager.create_connection()
+
+        self.config = Config(CONFIG_FILE)
+        self.config.load_window_config(self, "Window", 200, 200, 200, 600)
 
         clock_icon = Gtk.Image.new_from_icon_name(
             "clock-symbolic", Gtk.IconSize.DIALOG)
@@ -46,7 +52,7 @@ class MainWindow(Gtk.Window):
         vbox.pack_start(clock_icon, True, True, 0)
 
         self.timer_label = Gtk.Label()
-        self.timer_label.set_markup("<big>00:00:00.0</big>")
+        self.timer_label.set_markup("<big>00:00:00</big>")
         vbox.pack_start(self.timer_label, True, True, 0)
 
         self.total_time_label = Gtk.Label()
@@ -61,6 +67,10 @@ class MainWindow(Gtk.Window):
         self.export_button = Gtk.Button(label="Export")
         self.export_button.connect("clicked", self.on_export_button_clicked)
         vbox.pack_start(self.export_button, True, True, 0)
+
+        self.show_times = Gtk.Button(label="Show Times")
+        self.show_times.connect("clicked", self.on_show_records_clicked)
+        vbox.pack_start(self.show_times, True, True, 0)
 
         # Create a HBox for the category-related buttons
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -111,6 +121,11 @@ class MainWindow(Gtk.Window):
         if active_category_id is not None:
             self.category_combo.set_active_id(str(active_category_id))
 
+    def on_show_records_clicked(self, widget):
+        category_id = self.category_combo.get_active_id()
+        record_win = ListElapsedWindow(category_id, self.conn, CONFIG_FILE)
+        record_win.show_all()
+
     def update_timer_label_callback(self, new_label_text):
         self.timer_label.set_markup(f"<big>{new_label_text}</big>")
 
@@ -119,24 +134,9 @@ class MainWindow(Gtk.Window):
         cursor.execute("SELECT accumulated_time FROM total_time WHERE id = 1")
         self.total_time = cursor.fetchone()[0]
         self.total_time_label.set_markup(
-            f"<big>Total time: {self.format_time(self.total_time)}</big>")
+            f"<big>Total time: {Format.format_time(self.total_time)}</big>")
 
         self.load_categories()
-
-    def format_time(self, elapsed_time):
-        is_negative = elapsed_time < 0
-        if is_negative:
-            elapsed_time = -elapsed_time
-
-        hours, rem = divmod(elapsed_time, 3600)
-        mins, secs = divmod(rem, 60)
-        rounded_secs = round(secs, 2)  # Round seconds to 2 decimal places
-
-        formatted_time = f"{int(hours):02d}:{int(mins):02d}:{rounded_secs:04.1f}"
-        if is_negative:
-            formatted_time = f"-{formatted_time}"
-
-        return formatted_time
 
     def load_categories(self, new_category_id=None):
         current_active_id = self.category_combo.get_active_id()
@@ -172,7 +172,7 @@ class MainWindow(Gtk.Window):
             category_label.set_margin_start(5)
             category_label.set_margin_end(5)
 
-            total_time_label = Gtk.Label(label=self.format_time(total_time))
+            total_time_label = Gtk.Label(label=Format.format_time(total_time))
             total_time_label.set_margin_top(2)
             total_time_label.set_margin_bottom(2)
             total_time_label.set_margin_start(5)
@@ -233,7 +233,7 @@ class MainWindow(Gtk.Window):
                 cursor.execute("SELECT id, name FROM categories")
                 for category_id, name in cursor.fetchall():
                     total_time = self.get_category_total_time(category_id)
-                    f.write(f"{name}: {self.format_time(total_time)}\n")
+                    f.write(f"{name}: {Format.format_time(total_time)}\n")
 
             print(f"Categories exported to {filename}")
 
@@ -263,7 +263,7 @@ class MainWindow(Gtk.Window):
             content_area.add(label_total_time)
 
             entry_total_time = Gtk.Entry()
-            entry_total_time.set_text(self.format_time(old_total_time))
+            entry_total_time.set_text(Format.format_time(old_total_time))
             content_area.add(entry_total_time)
 
             dialog.show_all()
@@ -285,15 +285,15 @@ class MainWindow(Gtk.Window):
                     time_difference = round(
                         new_total_time - round(old_total_time, 2), 2)
 
-                    # print("CheckTime", self.format_time(time_difference), time_difference, new_total_time, old_total_time)
+                    # print("CheckTime", Format.format_time(time_difference), time_difference, new_total_time, old_total_time)
                     cursor = self.conn.cursor()
-                    cursor.execute("INSERT INTO records (category_id, elapsed_time) VALUES (?, ?)", (
-                        category_id, self.format_time(time_difference)))
+                    cursor.execute("INSERT INTO records (category_id, elapsed_time, timestamp) VALUES (?, ?, ?)", (
+                        category_id, Format.format_time(time_difference), datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
                     self.conn.commit()
 
                     self.total_time += time_difference
                     self.total_time_label.set_markup(
-                        f"<big>Total time: {self.format_time(self.total_time)}</big>")
+                        f"<big>Total time: {Format.format_time(self.total_time)}</big>")
                     cursor.execute(
                         "UPDATE total_time SET accumulated_time = ? WHERE id = 1", (self.total_time,))
                     self.conn.commit()
@@ -347,7 +347,7 @@ class MainWindow(Gtk.Window):
             self.total_time += time_in_seconds
 
         self.total_time_label.set_markup(
-            f"<big>Total time: {self.format_time(self.total_time)}</big>")
+            f"<big>Total time: {Format.format_time(self.total_time)}</big>")
         cursor.execute(
             "UPDATE total_time SET accumulated_time = ? WHERE id = 1", (self.total_time,))
         self.conn.commit()
@@ -372,7 +372,7 @@ class MainWindow(Gtk.Window):
     def update_label(self):
         elapsed_time = time.perf_counter() - self.start_time
         self.timer_label.set_markup(
-            f"<big>{self.format_time(elapsed_time)}</big>")
+            f"<big>{Format.format_time(elapsed_time)}</big>")
         return self.running
 
     def on_start_button_clicked(self, widget):
@@ -383,7 +383,7 @@ class MainWindow(Gtk.Window):
         else:
             self.running = False
             elapsed_time = time.perf_counter() - self.start_time
-            formatted_time = self.format_time(elapsed_time)
+            formatted_time = Format.format_time(elapsed_time)
             self.timer_label.set_markup(f"<big>{formatted_time}</big>")
 
             # Get the current timestamp
@@ -401,7 +401,7 @@ class MainWindow(Gtk.Window):
 
             self.total_time += elapsed_time
             self.total_time_label.set_markup(
-                f"<big>Total time: {self.format_time(self.total_time)}</big>")
+                f"<big>Total time: {Format.format_time(self.total_time)}</big>")
             cursor.execute(
                 "UPDATE total_time SET accumulated_time = ? WHERE id = 1", (self.total_time,))
             self.conn.commit()
@@ -461,29 +461,4 @@ class MainWindow(Gtk.Window):
         self.db_manager.close_connection()
 
     def on_delete_event(self, widget, event):
-        self.save_config()
-
-    def load_config(self):
-        config = configparser.ConfigParser()
-        if os.path.exists(CONFIG_FILE):
-            config.read(CONFIG_FILE)
-            x = int(config.get("Window", "x", fallback=0))
-            y = int(config.get("Window", "y", fallback=0))
-            width = int(config.get("Window", "width", fallback=300))
-            height = int(config.get("Window", "height", fallback=200))
-            self.move(x, y)
-            self.resize(width, height)
-
-    def save_config(self):
-        config = configparser.ConfigParser()
-        x, y = self.get_position()
-        width, height = self.get_size()
-        if not config.has_section("Window"):
-            config.add_section("Window")
-        config.set("Window", "x", str(x))
-        config.set("Window", "y", str(y))
-        config.set("Window", "width", str(width))
-        config.set("Window", "height", str(height))
-
-        with open(CONFIG_FILE, "w") as config_file:
-            config.write(config_file)
+        self.config.save_window_config(self, "Window")
