@@ -1,5 +1,5 @@
 class Format:
-    def format_time(elapsed_time):
+    def format_time(self, elapsed_time):
         is_negative = elapsed_time < 0
         if is_negative:
             elapsed_time = -elapsed_time

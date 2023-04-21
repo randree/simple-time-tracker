@@ -5,13 +5,13 @@ class DatabaseManager:
         self.db_name = db_name
 
     def create_connection(self):
-        conn = None
-        try:
-            conn = sqlite3.connect(self.db_name)
-            self.create_tables(conn)
+        # conn = None
+        # try:
+        conn = sqlite3.connect(self.db_name)
+        self.create_tables(conn)
 
-        except sqlite3.Error as e:
-            print(e)
+        # except sqlite3.Error as e:
+        #     print(e)
 
         return conn
 
@@ -27,14 +27,10 @@ class DatabaseManager:
             cursor.execute('''CREATE TABLE IF NOT EXISTS records
                             (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             category_id INTEGER REFERENCES categories(id),
-                            elapsed_time TEXT,
+                            elapsed_time REAL,
                             timestamp TEXT NOT NULL,
                             FOREIGN KEY (category_id) REFERENCES categories (id)
                             )''')
-
-            cursor.execute('''CREATE TABLE IF NOT EXISTS total_time
-                            (id INTEGER PRIMARY KEY, accumulated_time REAL)''')
-            cursor.execute("INSERT OR IGNORE INTO total_time (id, accumulated_time) VALUES (1, 0)")
 
             cursor.execute('''CREATE TABLE IF NOT EXISTS settings
                         (id INTEGER PRIMARY KEY, active_category_id INTEGER)''')

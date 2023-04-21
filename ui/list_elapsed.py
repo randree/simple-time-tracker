@@ -1,9 +1,8 @@
+from utils.config import Config
 import datetime
 import sqlite3
 from gi.repository import Gtk
 import gi
-
-from utils.config import Config
 gi.require_version("Gtk", "3.0")
 
 
@@ -21,9 +20,9 @@ class ListElapsedWindow(Gtk.Window):
 
         self.conn = db_conn
 
-        self.liststore = Gtk.ListStore(str, str)
+        self.list_store = Gtk.ListStore(str, str)
 
-        self.treeview = Gtk.TreeView(model=self.liststore)
+        self.treeview = Gtk.TreeView(model=self.list_store)
 
         timestamp_column = Gtk.TreeViewColumn("Timestamp")
         duration_column = Gtk.TreeViewColumn("Duration")
@@ -49,31 +48,20 @@ class ListElapsedWindow(Gtk.Window):
 
     def load_records(self):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT timestamp, elapsed_time FROM records WHERE category_id=?", (self.category_id,))
+        cursor.execute(
+            "SELECT timestamp, elapsed_time FROM records WHERE category_id=?", (self.category_id,))
         records = cursor.fetchall()
 
         for record in records:
-            timestamp = datetime.datetime.strptime(record[0], "%Y-%m-%d %H:%M:%S")
-            elapsed_time_parts = record[1].split(':')
-            hours, minutes = int(elapsed_time_parts[0]), int(elapsed_time_parts[1])
-            seconds = float(elapsed_time_parts[2])
-            elapsed_time = datetime.timedelta(hours=hours, minutes=minutes, seconds=seconds)
+            timestamp = datetime.datetime.strptime(
+                record[0], "%Y-%m-%d %H:%M:%S")
+            elapsed_time = datetime.timedelta(seconds=record[1])
             new_timestamp = timestamp - elapsed_time
             new_timestamp_str = new_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        
-            self.liststore.append([new_timestamp_str, record[1]])
+
+            formatted_elapsed_time = str(datetime.timedelta(seconds=round(record[1])))
+            self.list_store.append([new_timestamp_str, formatted_elapsed_time])
+
 
     def on_delete_event(self, widget, event):
         self.config.save_window_config(self, "ListWindow")
-
-
-def main():
-    category_id = 1  # Change this to the desired category id
-    win = ListElapsedWindow(category_id)
-    win.connect("destroy", Gtk.main_quit)
-    win.show_all()
-    Gtk.main()
-
-
-if __name__ == "__main__":
-    main()
