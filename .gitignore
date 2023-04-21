@@ -3,3 +3,4 @@ categories.txt
 test.py
 app_config.ini
 __pycache__
+.vscode/
