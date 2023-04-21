@@ -43,6 +43,7 @@ class MainWindow(Gtk.Window):
         self.clock_icon = SpinningIcon("clock-symbolic", 50)
 
         self.start_time = 0
+        self.total_time = 0
         self.category_total_time = 0
         self.running = False
 
@@ -143,9 +144,7 @@ class MainWindow(Gtk.Window):
             f"Total time: {Format().format_time(total_time)}")
 
     def init_accumulated_time(self):
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT SUM(elapsed_time) FROM records")
-        self.total_time = cursor.fetchone()[0]
+        self.get_total_time()
         self.set_total_time_label(self.total_time)
 
     def on_cursor_changed(self, tree_view):
@@ -435,7 +434,7 @@ class MainWindow(Gtk.Window):
                             new_total_time = round(sum(x * (int(t) if i != 2 else float(t))
                                                        for i, (x, t) in enumerate(zip([3600, 60, 1], new_time_str.split(":")))), 2)
                             time_difference = round(
-                                new_total_time - round(old_total_time, 2), 2)
+                                new_total_time - round(old_total_time))
 
                             self.update_category_time(
                                 self.current_category_id, time_difference)
@@ -467,7 +466,9 @@ class MainWindow(Gtk.Window):
     def get_total_time(self):
         cursor = self.conn.cursor()
         cursor.execute("SELECT SUM(elapsed_time) FROM records")
-        self.total_time = cursor.fetchone()[0]
+        res = cursor.fetchone()[0]
+        if res is not None:
+            self.total_time = res
 
     def update_total_time(self):
         self.get_total_time()
@@ -482,14 +483,15 @@ class MainWindow(Gtk.Window):
         total_time = 0
         for elapsed_time, in times:
             total_time += elapsed_time
-        return round(total_time, 2)
+        return round(total_time)
 
     def update_label(self):
         if self.running:
-            elapsed_time = time.perf_counter() - self.start_time
+            elapsed_time = round(time.perf_counter() - self.start_time)
             self.timer_label.set_markup(
                 f"<big>{Format().format_time(elapsed_time)}</big>")
-            self.update_category_time_store(self.category_total_time + elapsed_time)
+            self.update_category_time_store(
+                self.category_total_time + elapsed_time)
             # Making sure that timer is on
             self.set_total_time_label(self.total_time + elapsed_time)
         return self.running
@@ -498,7 +500,8 @@ class MainWindow(Gtk.Window):
         if not self.running:
             self.get_total_time()
             self.start_time = time.perf_counter()
-            self.category_total_time = self.get_category_total_time(self.current_category_id)
+            self.category_total_time = self.get_category_total_time(
+                self.current_category_id)
             self.running = True
             GLib.timeout_add(1000, self.update_label)
             self.clock_icon.start()
@@ -508,7 +511,8 @@ class MainWindow(Gtk.Window):
             self.timer_label.set_markup(
                 f"<big>{Format().format_time(elapsed_time)}</big>")
 
-            self.update_category_time(self.current_category_id, elapsed_time)
+            self.update_category_time(
+                self.current_category_id, round(elapsed_time))
             self.update_total_time()
             self.clock_icon.stop()
 

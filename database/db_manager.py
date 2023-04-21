@@ -27,7 +27,7 @@ class DatabaseManager:
             cursor.execute('''CREATE TABLE IF NOT EXISTS records
                             (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             category_id INTEGER REFERENCES categories(id),
-                            elapsed_time REAL,
+                            elapsed_time INTEGER NOT NULL,
                             timestamp TEXT NOT NULL,
                             FOREIGN KEY (category_id) REFERENCES categories (id)
                             )''')
