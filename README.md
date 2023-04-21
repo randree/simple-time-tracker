@@ -1,5 +1,5 @@
 # Simple Time Tracker
-<img src="images/screenshot1.png" alt="Simple Time Tracker Screenshot" align="right" height="500px">
+<img src="images/screenshot1b.png" alt="Simple Time Tracker Screenshot" align="right" height="500px">
 A simple time tracking application built with Python and GTK.
 
 ## Description
