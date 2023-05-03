@@ -148,6 +148,14 @@ class MainWindow(Gtk.Window):
             self.start_button.set_sensitive(True)
             self.start_button.set_can_focus(True)
 
+        # If list store is empty that some buttons are allowed
+        is_empty = not bool(self.list_store.get_iter_first())
+        if is_empty:
+            self.add_category_button.set_sensitive(True)
+            self.add_category_button.set_can_focus(True)
+
+        
+
     def on_show_records_clicked(self, widget):
         category_id = self.current_category_id
         record_win = ListElapsedWindow(category_id, self.conn, CONFIG_FILE)
@@ -180,7 +188,7 @@ class MainWindow(Gtk.Window):
             self.current_category_id = None
             self.category_label.set_label("")
 
-        # self.check_current_category()
+        self.check_current_category()
 
         # Redraw the TreeView to update the background color
         tree_view.queue_draw()
@@ -525,8 +533,6 @@ class MainWindow(Gtk.Window):
             self.export_button.set_can_focus(False)
             self.show_times.set_sensitive(False)
             self.show_times.set_can_focus(False)            
-            # tree_selection = self.tree_view.get_selection()
-            # tree_selection.set_mode(Gtk.SelectionMode.NONE)
             self.tree_view.connect("button-press-event", self.disable_click)
             self.tree_view.set_property("can-focus", False)
 
@@ -548,8 +554,6 @@ class MainWindow(Gtk.Window):
             self.export_button.set_can_focus(True)
             self.show_times.set_sensitive(True)
             self.show_times.set_can_focus(True)
-            # tree_selection = self.tree_view.get_selection()
-            # tree_selection.set_mode(Gtk.SelectionMode.SINGLE)
             self.tree_view.disconnect_by_func(self.disable_click)
             self.tree_view.set_property("can-focus", True)
 
