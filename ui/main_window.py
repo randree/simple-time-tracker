@@ -488,6 +488,12 @@ class MainWindow(Gtk.Window):
 
             dialog.destroy()
 
+        # If list store is empty that some buttons are allowed
+        is_empty = not bool(self.list_store.get_iter_first())
+        if is_empty:
+            self.category_label.set_label("")
+            self.check_current_category()
+
     def get_total_time(self):
         cursor = self.conn.cursor()
         cursor.execute("SELECT SUM(elapsed_time) FROM records")
