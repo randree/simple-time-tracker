@@ -122,17 +122,31 @@ class MainWindow(Gtk.Window):
 
     def check_current_category(self):
         if self.current_category_id is None:
+            self.add_category_button.set_sensitive(False)
+            self.add_category_button.set_can_focus(False)
             self.edit_category_button.set_sensitive(False)
+            self.edit_category_button.set_can_focus(False)
             self.delete_category_button.set_sensitive(False)
+            self.delete_category_button.set_can_focus(False)
             self.export_button.set_sensitive(False)
+            self.export_button.set_can_focus(False)
             self.show_times.set_sensitive(False)
+            self.show_times.set_can_focus(False)
             self.start_button.set_sensitive(False)
+            self.start_button.set_can_focus(False)
         else:
+            self.add_category_button.set_sensitive(True)
+            self.add_category_button.set_can_focus(True)
             self.edit_category_button.set_sensitive(True)
+            self.edit_category_button.set_can_focus(True)
             self.delete_category_button.set_sensitive(True)
+            self.delete_category_button.set_can_focus(True)
             self.export_button.set_sensitive(True)
+            self.export_button.set_can_focus(True)
             self.show_times.set_sensitive(True)
+            self.show_times.set_can_focus(True)
             self.start_button.set_sensitive(True)
+            self.start_button.set_can_focus(True)
 
     def on_show_records_clicked(self, widget):
         category_id = self.current_category_id
@@ -166,7 +180,7 @@ class MainWindow(Gtk.Window):
             self.current_category_id = None
             self.category_label.set_label("")
 
-        self.check_current_category()
+        # self.check_current_category()
 
         # Redraw the TreeView to update the background color
         tree_view.queue_draw()
@@ -269,14 +283,14 @@ class MainWindow(Gtk.Window):
         cursor.execute("SELECT id, name FROM categories")
 
         # Create a ListStore and set it as the model for the TreeView
-        tree_view = Gtk.TreeView(model=self.list_store)
+        self.tree_view = Gtk.TreeView(model=self.list_store)
 
         # Create TreeViewColumns and CellRenderers for the TreeView
         category_column = Gtk.TreeViewColumn("Category")
         total_time_column = Gtk.TreeViewColumn("Total Time")
 
-        category_renderer = Gtk.CellRendererText()
-        total_time_renderer = Gtk.CellRendererText()
+        category_renderer = Gtk.CellRendererText(editable=False)
+        total_time_renderer = Gtk.CellRendererText(editable=False)
 
         category_column.pack_start(category_renderer, True)
         total_time_column.pack_start(total_time_renderer, True)
@@ -285,17 +299,17 @@ class MainWindow(Gtk.Window):
         total_time_column.add_attribute(total_time_renderer, "text", 2)
 
         # Add the columns to the TreeView
-        tree_view.append_column(category_column)
-        tree_view.append_column(total_time_column)
+        self.tree_view.append_column(category_column)
+        self.tree_view.append_column(total_time_column)
 
         # Connect the 'cursor-changed' signal to update the active category
-        tree_view.connect("cursor-changed", self.on_cursor_changed)
+        self.tree_view.connect("cursor-changed", self.on_cursor_changed)
 
         # Remove the previous TreeView (if any) and add the new one
         for child in self.categories_list_box.get_children():
             self.categories_list_box.remove(child)
 
-        self.categories_list_box.pack_start(tree_view, True, True, 0)
+        self.categories_list_box.pack_start(self.tree_view, True, True, 0)
 
         for category_id, name in cursor.fetchall():
             total_time = self.get_category_total_time(category_id)
@@ -310,13 +324,16 @@ class MainWindow(Gtk.Window):
             # Assuming the ID field is at column index 0
             row_id = self.list_store.get_value(tree_iter, 0)
             if row_id == self.current_category_id:
-                selection = tree_view.get_selection()
+                selection = self.tree_view.get_selection()
                 selection.select_iter(tree_iter)
-                self.on_cursor_changed(tree_view)
+                self.on_cursor_changed(self.tree_view)
                 break
             tree_iter = self.list_store.iter_next(tree_iter)
 
         self.categories_list_box.show_all()
+
+    def disable_click(self, widget, event):
+        return True
 
     def on_export_button_clicked(self, widget):
         # Create a new file chooser dialog
@@ -498,6 +515,21 @@ class MainWindow(Gtk.Window):
 
     def on_start_button_clicked(self, widget):
         if not self.running:
+            self.add_category_button.set_sensitive(False)
+            self.add_category_button.set_can_focus(False)
+            self.edit_category_button.set_sensitive(False)
+            self.edit_category_button.set_can_focus(False)
+            self.delete_category_button.set_sensitive(False)
+            self.delete_category_button.set_can_focus(False)
+            self.export_button.set_sensitive(False)
+            self.export_button.set_can_focus(False)
+            self.show_times.set_sensitive(False)
+            self.show_times.set_can_focus(False)            
+            # tree_selection = self.tree_view.get_selection()
+            # tree_selection.set_mode(Gtk.SelectionMode.NONE)
+            self.tree_view.connect("button-press-event", self.disable_click)
+            self.tree_view.set_property("can-focus", False)
+
             self.get_total_time()
             self.start_time = time.perf_counter()
             self.category_total_time = self.get_category_total_time(
@@ -506,6 +538,21 @@ class MainWindow(Gtk.Window):
             GLib.timeout_add(1000, self.update_label)
             self.clock_icon.start()
         else:
+            self.add_category_button.set_sensitive(True)
+            self.add_category_button.set_can_focus(True)
+            self.edit_category_button.set_sensitive(True)
+            self.edit_category_button.set_can_focus(True)
+            self.delete_category_button.set_sensitive(True)
+            self.delete_category_button.set_can_focus(True)
+            self.export_button.set_sensitive(True)
+            self.export_button.set_can_focus(True)
+            self.show_times.set_sensitive(True)
+            self.show_times.set_can_focus(True)
+            # tree_selection = self.tree_view.get_selection()
+            # tree_selection.set_mode(Gtk.SelectionMode.SINGLE)
+            self.tree_view.disconnect_by_func(self.disable_click)
+            self.tree_view.set_property("can-focus", True)
+
             self.running = False
             elapsed_time = time.perf_counter() - self.start_time
             self.timer_label.set_markup(
